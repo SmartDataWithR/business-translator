@@ -52,12 +52,12 @@ Browser (Next.js)  --HTTP/JSON-->  FastAPI (Python)  --API-->  LLM-Anbieter
 - Next.js (App Router), TypeScript, Tailwind CSS
 - Ordner: `frontend/`
 - Eine Hauptseite mit Eingabefeld, Richtungsumschalter, Ergebnisfeld
-- Aufruf des Backends über `NEXT_PUBLIC_API_URL`
+- Aufruf des Backends über relative URLs (`/api/...`) auf derselben Domain
 
 ### Backend
 - Python, FastAPI, Pydantic für Request/Response-Validierung
 - LLM-Aufruf serverseitig über OpenRouter (OpenAI-kompatible API); API-Key nur im Backend (`.env`, nicht im Repo)
-- CORS nur für die Frontend-Origin freigegeben
+- Kein CORS nötig: Frontend und Backend laufen unter derselben Domain
 - Prompt-Logik gekapselt in eigenem Modul (Prompts je Richtung und Intensität)
 
 ## 7. API-Spezifikation
@@ -128,5 +128,5 @@ business-translator/
 ## 12. Offene Fragen
 
 - ~~LLM-Anbieter~~: OpenRouter (Modell per `OPENROUTER_MODEL` konfigurierbar).
-- Deployment-Ziel (lokal, Vercel + Container, o. ä.)?
+- ~~Deployment-Ziel~~: Vercel, Frontend und Backend als Vercel Services in einem Projekt (siehe `Deployment.md`).
 - Soll es später einen Verlauf oder Teilen-Funktion geben?

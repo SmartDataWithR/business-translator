@@ -7,7 +7,6 @@ type Intensity = "low" | "medium" | "high";
 type Health = { model: string; rateLimit: string } | null;
 
 const MAX_LENGTH = 500;
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const DIRECTIONS: { value: Direction; label: string; placeholder: string }[] = [
   { value: "to_business", label: "klartext → business", placeholder: "Text eingeben, z. B. Ich habe das vergessen." },
@@ -63,7 +62,7 @@ export default function Translator() {
     let active = true;
     async function ping() {
       try {
-        const res = await fetch(`${API_URL}/api/health`);
+        const res = await fetch("/api/health");
         if (!res.ok) throw new Error();
         const data = await res.json();
         if (!active) return;
@@ -97,7 +96,7 @@ export default function Translator() {
     setCopied(false);
     const started = performance.now();
     try {
-      const res = await fetch(`${API_URL}/api/translate`, {
+      const res = await fetch("/api/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: trimmed, direction, intensity }),
