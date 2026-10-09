@@ -1,4 +1,4 @@
-﻿# PRD: Bullshit-Übersetzer (Business Translator)
+﻿# PRD: Firmengeplapper-Übersetzer (Business Translator)
 
 ## 1. Überblick
 

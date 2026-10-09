@@ -142,7 +142,7 @@ export default function Translator() {
   return (
     <div className="flex h-dvh flex-col bg-[#0E1116] text-sm text-[#D7DEE8]">
       <header className="flex h-11 shrink-0 items-center gap-4 border-b border-[#263040] bg-[#151A21] px-5 text-xs text-[#7D8A9C]">
-        <span className="font-bold text-[#E3B341]">bullshit-translator</span>
+        <span className="font-bold text-[#E3B341]">firmengeplapper-übersetzer</span>
         <span>v1.0</span>
         <span className="ml-auto hidden truncate sm:inline">model: {health?.model ?? "–"}</span>
         <span

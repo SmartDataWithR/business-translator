@@ -1,4 +1,4 @@
-﻿# Bullshit-Übersetzer
+﻿# Firmengeplapper-Übersetzer
 
 Übersetzt Klartext in Business-Speech und zurück. Spezifikation: `ai_docs/PRD.md`.
 
