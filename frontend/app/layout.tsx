@@ -8,7 +8,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bullshit-Übersetzer",
+  title: "Firmengeplapper-Übersetzer",
   description: "Übersetzt Klartext in Business-Speech und zurück.",
 };
 
