@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -10,24 +10,41 @@ from slowapi.util import get_remote_address
 
 load_dotenv()
 
-import llm  # noqa: E402  (nach load_dotenv, damit ANTHROPIC_MODEL gelesen wird)
+import llm  # noqa: E402  (nach load_dotenv, damit OPENROUTER_MODEL gelesen wird)
 from prompts import Direction, Intensity  # noqa: E402
 
 MAX_TEXT_LENGTH = 500
 RATE_LIMIT = os.getenv("RATE_LIMIT", "20/minute")
 
-limiter = Limiter(key_func=get_remote_address)
 
-app = FastAPI(title="Bullshit-Übersetzer API")
+def client_ip(request: Request) -> str:
+    # Hinter dem Vercel-Proxy ist request.client nicht der Nutzer. Vercel überschreibt
+    # X-Forwarded-For mit der Client-IP. Andere Proxys hängen sie hinten an, frühere
+    # Einträge könnte der Client gefälscht haben, daher zählt der letzte.
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[-1].strip()
+    return get_remote_address(request)
+
+
+# Zähler im Speicher der Instanz: Auf Vercel laufen mehrere kurzlebige Instanzen,
+# das Limit ist dort also nur eine grobe Bremse und keine harte Grenze.
+limiter = Limiter(key_func=client_ip)
+
+# Doku unter /api/, damit vercel.json sie wie alle API-Routen ans Backend leitet.
+app = FastAPI(
+    title="Bullshit-Übersetzer API",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[o.strip() for o in os.getenv("FRONTEND_ORIGIN", "http://localhost:3000").split(",")],
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
-)
+
+@app.get("/docs", include_in_schema=False)
+def docs_redirect() -> RedirectResponse:
+    return RedirectResponse("/api/docs")
 
 
 class TranslateRequest(BaseModel):

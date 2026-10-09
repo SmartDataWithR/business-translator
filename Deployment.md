@@ -1,65 +1,50 @@
 # Deployment
 
-Frontend (Next.js) auf Vercel, Backend (FastAPI) auf Heroku.
+Frontend und Backend laufen als [Vercel Services](https://vercel.com/docs/services) (Beta) in **einem** Vercel-Projekt unter einer Domain. Die Konfiguration steht in `vercel.json` im Repo-Root.
 
 | Teil | URL |
 | --- | --- |
-| Frontend | https://business-translator.vercel.app |
-| Backend | https://business-translator-api-75a8fdbc26c1.herokuapp.com |
+| App | https://business-translator.vercel.app |
+| API | dieselbe Domain, Pfad `/api/…` |
+| API-Doku (Swagger) | https://business-translator.vercel.app/api/docs (auch `/docs`) |
 
-CORS läuft über `FRONTEND_ORIGIN` (Backend), die API-URL im Frontend über `NEXT_PUBLIC_API_URL`.
+## Wie es zusammenhängt
 
-## 1. Backend auf Heroku (zuerst, damit die URL bekannt ist)
+`vercel.json` leitet `/api/*` an `backend/` (FastAPI, `main:app`) und alles andere an `frontend/` (Next.js). Das Backend sieht den vollen Pfad (`/api/translate`), alle FastAPI-Routen müssen also unter `/api/` liegen. Weil beide Teile unter derselben Domain laufen, ruft das Frontend die API über relative URLs auf, CORS ist nicht nötig.
 
-Heroku erwartet die App im Repo-Root, hier liegt sie in `backend/`. Dafür gibt es `backend/Procfile` und `backend/.python-version` (`.python-version` ersetzt das veraltete `runtime.txt`).
+Vercel erkennt FastAPI automatisch (`backend/main.py` mit `app`). Die Python-Version kommt aus `backend/.python-version`, die Abhängigkeiten aus `backend/requirements.txt`.
 
-```bash
-heroku login
-heroku create business-translator-api
-heroku config:set OPENROUTER_API_KEY=sk-... -a business-translator-api
-heroku config:set FRONTEND_ORIGIN=https://business-translator.vercel.app -a business-translator-api
-git subtree push --prefix backend heroku main
-```
+## Erstes Deployment
 
-- `backend/.env` nicht committen, Werte nur als Config Vars setzen. Optional: `OPENROUTER_MODEL`, `RATE_LIMIT`.
-- Test: `curl https://business-translator-api-75a8fdbc26c1.herokuapp.com/api/health`
-- Schlägt `git subtree push` mit "Authentication failed" fehl, den Heroku-Token als Header mitgeben (Bash):
-
-  ```bash
-  B=$(printf ':%s' "$(heroku auth:token)" | base64 -w0)
-  git -c "http.extraheader=Authorization: Basic $B" subtree push --prefix backend heroku main
-  ```
-
-## 2. Frontend auf Vercel
-
-Die Vercel-Anbindung ans GitHub-Repo besteht nicht (Vercel-GitHub-App ohne Zugriff), daher gibt es kein Auto-Deploy bei `git push`. Deployt wird per CLI aus `frontend/`:
+Im Repo-Root (nicht in `frontend/`). Das Projekt muss das Repo-Root als Root Directory haben, sonst findet Vercel `vercel.json` nicht.
 
 ```bash
-cd frontend
-npx vercel login                      # einmalig, Browser-Login
-npx vercel link --yes --project business-translator
-printf 'https://business-translator-api-75a8fdbc26c1.herokuapp.com' | npx vercel env add NEXT_PUBLIC_API_URL production
+npx vercel login
+npx vercel link --yes --project business-translator   # Team pat-ffms-projects
+npx vercel env add OPENROUTER_API_KEY production   # Wert interaktiv eingeben
 npx vercel deploy --prod --yes
 ```
 
-`NEXT_PUBLIC_*` wird beim Build eingebacken. Nach einer Änderung der Variable muss neu deployt werden. Die URL ohne Slash am Ende angeben.
+Optional: `OPENROUTER_MODEL` und `RATE_LIMIT`.
 
-Alternativ per Dashboard: Repo importieren, **Root Directory** auf `frontend` setzen, `NEXT_PUBLIC_API_URL` eintragen.
-
-## 3. Verbinden prüfen
+Prüfen:
 
 ```bash
-# CORS-Preflight (muss Access-Control-Allow-Origin mit der Vercel-Domain liefern)
-curl -i -X OPTIONS \
-  -H "Origin: https://business-translator.vercel.app" \
-  -H "Access-Control-Request-Method: POST" \
-  -H "Access-Control-Request-Headers: content-type" \
-  https://business-translator-api-75a8fdbc26c1.herokuapp.com/api/translate
+curl https://business-translator.vercel.app/api/health
 ```
 
-Mehrere Origins (z. B. zusätzlich eine Custom Domain) gehen kommagetrennt in `FRONTEND_ORIGIN`.
+Lokal laufen beide Services zusammen mit `npx vercel dev` im Repo-Root. Ohne Vercel-CLI geht es wie im README: Backend per uvicorn auf :8000, Frontend per `npm run dev`. `next.config.ts` leitet `/api/*` im Dev-Modus an :8000 weiter.
 
 ## Updates
 
-- Backend: `git subtree push --prefix backend heroku main`
-- Frontend: `npx vercel deploy --prod --yes` in `frontend/`
+`npx vercel deploy --prod --yes` im Repo-Root. Eine Git-Anbindung mit Auto-Deploy gibt es nicht.
+
+## Grenzen
+
+- **Rate-Limit ist nur eine grobe Bremse.** slowapi zählt im Speicher der jeweiligen Instanz. Vercel startet je nach Last mehrere kurzlebige Instanzen, das Limit ist also keine harte Grenze. Ein gemeinsamer Zähler (z. B. Redis) wäre der nächste Schritt, falls nötig. Die Client-IP kommt aus dem letzten Eintrag von `X-Forwarded-For`, den Vercel mit der echten IP überschreibt.
+- Funktionen laufen standardmäßig in `iad1` (USA Ost), maximal 300 s pro Request im Hobby-Plan (der LLM-Timeout liegt bei 30 s).
+- Der Hobby-Plan ist nur für nicht-kommerzielle Nutzung gedacht.
+
+## Historie
+
+Ursprünglich war das Backend auf Heroku geplant (Frontend und Backend getrennt, mit CORS und `NEXT_PUBLIC_API_URL`). Das wurde nie umgesetzt und ist vollständig entfernt.

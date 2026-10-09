@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import llm
-from main import app, limiter
+from main import RATE_LIMIT, app, limiter
 from prompts import build_system_prompt
 
 
@@ -77,3 +77,26 @@ def test_translate_timeout(monkeypatch):
 def test_prompts_differ_by_direction_and_intensity():
     assert "Klartext" in build_system_prompt("to_plain", "medium")
     assert build_system_prompt("to_business", "low") != build_system_prompt("to_business", "high")
+
+
+def test_rate_limit_per_forwarded_ip(monkeypatch):
+    monkeypatch.setattr(llm, "translate", lambda *_: ("ok", None))
+    body = {"text": "hi", "direction": "to_plain"}
+    limit = int(RATE_LIMIT.split("/")[0])
+
+    def post(forwarded_for):
+        return client.post("/api/translate", json=body, headers={"X-Forwarded-For": forwarded_for})
+
+    # Der gefälschte erste Eintrag darf das Limit nicht umgehen, es zählt der letzte (vom Proxy).
+    for i in range(limit):
+        assert post(f"10.0.0.{i}, 1.1.1.1").status_code == 200
+    assert post("9.9.9.9, 1.1.1.1").status_code == 429
+    assert post("2.2.2.2").status_code == 200
+
+
+def test_docs_under_api_prefix():
+    assert client.get("/api/docs").status_code == 200
+    assert client.get("/api/openapi.json").json()["paths"].keys() == {"/api/health", "/api/translate"}
+    r = client.get("/docs", follow_redirects=False)
+    assert r.status_code == 307
+    assert r.headers["location"] == "/api/docs"
